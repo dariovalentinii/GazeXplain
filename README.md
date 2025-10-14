@@ -49,9 +49,10 @@ Based on the [`checkpoint`](https://github.com/nocaps-org/updown-baseline/blob/m
 
 ```bash
 $ conda env create -f environment.yml
+$ conda activate gazexplain-mac
 ```
 
-to create the same environment where we successfully run our codes.
+The provided `environment.yml` installs a CPU-only stack suitable for running inference on Intel macOS systems. After creating the environment, activate it with the second command before running any of the project scripts. When finished, deactivate the session with `conda deactivate`, and remove it entirely with `conda env remove -n gazexplain-mac` if you no longer need it.
 
 :bookmark_tabs: Datasets <a name="datasets"></a>
 ------------------
