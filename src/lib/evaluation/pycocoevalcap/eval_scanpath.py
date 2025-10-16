@@ -30,6 +30,11 @@ class ScanpathEval:
         gts = {}
         res = {}
         for key in self.Res:
+            if key not in self.Gts:
+                # Skip predictions that don't have a matching ground-truth entry.
+                # This prevents KeyError when keys are formatted differently.
+                print(f"Warning: prediction key '{key}' not found in ground-truth; skipping.")
+                continue
             gts[key] = self.Gts[key]
             res[key] = self.Res[key]
 
