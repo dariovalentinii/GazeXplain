@@ -54,14 +54,14 @@ class Evaluator(object):
     def __init__(self, opt):
         self.opt = opt
         self.datasets = ["AiR-D", "OSIE", "COCO-TP", "COCO-TA"]
-        self.AiR_fix_clusters = np.load(os.path.join(opt.dataset_dir, "AiR", "processed_data", 'clusters.npy'),
-                                        allow_pickle=True).item()
+        # self.AiR_fix_clusters = np.load(os.path.join(opt.dataset_dir, "AiR", "processed_data", 'clusters.npy'),
+        #                                 allow_pickle=True).item()
         self.OSIE_fix_clusters = np.load(os.path.join(opt.dataset_dir, "OSIE", "processed", 'clusters.npy'),
                                         allow_pickle=True).item()
-        self.COCOTP_fix_clusters = np.load(os.path.join(opt.dataset_dir, "COCO/TP", "processed", 'clusters.npy'),
-                                           allow_pickle=True).item()
-        self.COCOTA_fix_clusters = np.load(os.path.join(opt.dataset_dir, "COCO/TA", "processed", 'clusters.npy'),
-                                           allow_pickle=True).item()
+        # self.COCOTP_fix_clusters = np.load(os.path.join(opt.dataset_dir, "COCO/TP", "processed", 'clusters.npy'),
+        #                                    allow_pickle=True).item()
+        # self.COCOTA_fix_clusters = np.load(os.path.join(opt.dataset_dir, "COCO/TA", "processed", 'clusters.npy'),
+        #                                    allow_pickle=True).item()
 
 
     def explanation_evaluation(self, gts, preds):
