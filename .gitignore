@@ -1,2 +1,5 @@
 .DS_Store
 runs/
+dataset_root/OSIE/stimuli/
+OSIE full/
+**/__pycache__
