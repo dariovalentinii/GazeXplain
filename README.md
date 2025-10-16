@@ -63,7 +63,7 @@ This dataset contains the explanations of visual scanpaths in three different sc
 :computer: Preprocess
 ------------------
 
-To process the data, you can follow the instructions provided in [`Scanpath`](https://github.com/chenxy99/Scanpaths) and [`Gazeformer`](https://github.com/cvlab-stonybrook/Gazeformer). 
+To process the data, you can follow the instructions provided in [`Scanpath`](https://github.com/chenxy99/Scanpaths) and [`Gazeformer`](https://github.com/cvlab-stonybrook/Gazeformer).
 For handling the SS cluster, you can refer to [`Gazeformer`](https://github.com/cvlab-stonybrook/Gazeformer) and [`Target-absent-Human-Attention`](https://github.com/cvlab-stonybrook/Target-absent-Human-Attention).
 More specifically, you can run the following scripts to process the data.
 
@@ -77,6 +77,50 @@ $ python ./src/preprocess/${dataset}/feature_extractor.py
 
 
 We structure `<dataset_root>` as follows
+
+#### OSIE `clusters.npy` generation workflow
+
+`clusters.npy` stores the MeanShift models and discrete fixation strings required by the scanpath similarity metrics. The evaluator searches this file for keys that match the `<split>-<image_id>` pattern (for example, `test-1014`). Without the file, inference fails when metrics are computed.
+
+1. **Prepare the processed directory** – ensure the following files live under `<dataset_root>/OSIE/processed/`:
+
+   - `fixations/` – raw JSON files for each split (`osie_fixations_train.json`, `osie_fixations_validation.json`, `osie_fixations_test.json`).
+   - `fixations.json` – a merged view containing every scanpath entry. Create/update it with:
+
+     ```bash
+     python src/preprocess/OSIE/preprocess_fixations.py \
+       --dataset_dir <dataset_root>/OSIE
+     ```
+
+     Run this from an activated conda environment so NumPy, SciPy, and scikit-learn are available.
+
+   - `explanation.json` – textual annotations shipped with the dataset.
+
+2. **Run the clustering script** – `src/preprocess/OSIE/proprecess_OSIE_SScluster.py` is a standalone script. It reads `fixations.json`, rescales coordinates to `384×512`, fits MeanShift, and writes `clusters.npy`. Before executing, adjust the hard-coded roots at the top of the file (or create symbolic links) so that `fixation_root`/`processed_root` both point to `<dataset_root>/OSIE/processed/` on your machine. Then launch:
+
+   ```bash
+   python src/preprocess/OSIE/proprecess_OSIE_SScluster.py
+   ```
+
+   The script prints progress while iterating over images and produces `<dataset_root>/OSIE/processed/clusters.npy`.
+
+   > **Tip:** if you prefer not to edit the script, temporarily create `/home/OSIE/processed` and symlink it to your processed folder so the default paths resolve:
+   > ```bash
+   > sudo mkdir -p /home/OSIE
+   > sudo ln -s <dataset_root>/OSIE/processed /home/OSIE/processed
+   > ```
+   > Remember to remove the symlink when you finish preprocessing.
+
+3. **Validate the output** – load the file in a Python shell to verify the expected keys exist:
+
+   ```python
+   import numpy as np
+   clusters = np.load('<dataset_root>/OSIE/processed/clusters.npy', allow_pickle=True).item()
+   print(len(clusters))            # number of split-image entries
+   print(list(clusters)[:5])       # sample keys such as 'test-1014'
+   ```
+
+Once `clusters.npy` is present alongside `fixations.json`, the evaluation script can compute scanpath metrics for OSIE samples during inference.
 
 :runner: Training your own network on ALL the datasets
 ------------------
@@ -100,6 +144,125 @@ For inference, we provide the [`pretrained model`](https://drive.google.com/file
 ```bash
 $ sh bash/test.sh
 ```
+
+If you prefer to invoke the evaluation script manually, ensure that the
+`accelerate` CLI comes from the active conda environment and run:
+
+```bash
+$ accelerate launch --cpu --config_file src/config.yaml \
+    src/test_explanation_alignment.py --split test --test_batch 1 \
+    --dataset_dir <dataset_root> --datasets OSIE
+```
+
+In case your shell cannot find the console script or you receive an error like
+```
+No module named accelerate.__main__; 'accelerate' is a package and cannot be directly executed
+```
+use the module path provided by the package instead:
+
+```bash
+$ python -m accelerate.commands.launch --cpu --config_file src/config.yaml \
+    src/test_explanation_alignment.py --split test --test_batch 1 \
+    --dataset_dir <dataset_root> --datasets OSIE
+```
+
+### Troubleshooting common macOS runtime errors
+
+When creating a minimal conda environment you may have to add a few packages
+manually as you encounter import errors:
+
+- **Missing `cv2`** – install OpenCV inside the active environment:
+  ```bash
+  (gazexplain-mac) $ conda install -c conda-forge opencv
+  # or, if you prefer pip:
+  (gazexplain-mac) $ python -m pip install opencv-python
+  ```
+- **`RequestsDependencyWarning` about `chardet`/`charset_normalizer`** – add a
+  charset detector so the `requests` library can guess encodings:
+  ```bash
+  (gazexplain-mac) $ python -m pip install charset-normalizer
+  ```
+- **Accelerate/Numpy compatibility** – the CPU wheels used here expect NumPy
+  1.26.x. If you see `module 'numpy' has no attribute '_core'`, reinstall the
+  compatible stack:
+  ```bash
+  (gazexplain-mac) $ python -m pip install 'numpy<2' 'accelerate==0.27.0'
+  ```
+  and then rerun the launch command from the same shell.
+- **`RuntimeError: Device index must not be negative` during sampling** – this
+  indicates the model is attempting to draw stochastic scanpaths on a CPU
+  tensor. The helper in `src/lib/models/sample/sampling.py` expects GPU tensors
+  and calls `get_device()`, which returns `-1` for CPU data. When you only need
+  deterministic predictions (gaze logits, generated explanation) run the test
+  script with `--eval_repeat_num 0` to disable sampling:
+  ```bash
+  (gazexplain-mac) $ accelerate launch --cpu --config_file src/config.yaml \
+      src/test_explanation_alignment.py --split test --test_batch 1 \
+      --dataset_dir <dataset_root> --datasets OSIE --eval_repeat_num 0
+  ```
+  If you require the sampled scanpaths, execute the evaluation on a machine
+  with a CUDA-capable GPU (or Apple Silicon with MPS) so tensors reside on a
+  device whose index is ≥ 0.
+
+### Fixing `mat1 and mat2 shapes cannot be multiplied`
+
+This runtime exception indicates that the image features loaded from
+`<dataset_root>/OSIE/image_features/*.pth` do not have the expected channel
+dimension of 2048. It typically appears after extracting features with a script
+that stores 256-dimensional FPN maps. Remove any incorrectly generated files
+and recreate them with the reference extractor:
+
+```bash
+(gazexplain-mac) $ find <dataset_root>/OSIE/image_features -name '*.pth' -delete
+(gazexplain-mac) $ python - <<'PY'
+import os
+import torch
+import torchvision.transforms as T
+from torchvision.models.detection import maskrcnn_resnet50_fpn, MaskRCNN_ResNet50_FPN_Weights
+from PIL import Image
+
+class ResNetCOCO(torch.nn.Module):
+    def __init__(self, device="cpu"):
+        super().__init__()
+        self.resnet = maskrcnn_resnet50_fpn(weights=MaskRCNN_ResNet50_FPN_Weights.COCO_V1).backbone.body.to(device)
+        self.device = device
+
+    @torch.no_grad()
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.to(self.device)
+        x = self.resnet.conv1(x)
+        x = self.resnet.bn1(x)
+        x = self.resnet.relu(x)
+        x = self.resnet.maxpool(x)
+        x = self.resnet.layer1(x)
+        x = self.resnet.layer2(x)
+        x = self.resnet.layer3(x)
+        x = self.resnet.layer4(x)
+        b, c, h, w = x.shape
+        return x.view(b, c, h * w).permute(0, 2, 1).contiguous()
+
+dataset_path = os.path.expanduser('<dataset_root>/OSIE')
+stimuli_dir = os.path.join(dataset_path, 'stimuli')
+target_dir = os.path.join(dataset_path, 'image_features')
+os.makedirs(target_dir, exist_ok=True)
+
+resize = T.Resize((384 * 2, 512 * 2))
+normalize = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+backbone = ResNetCOCO(device="cpu").eval()
+
+for fname in sorted(os.listdir(stimuli_dir)):
+    if not fname.lower().endswith('.jpg'):
+        continue
+    image = Image.open(os.path.join(stimuli_dir, fname)).convert('RGB')
+    tensor = normalize(resize(T.functional.to_tensor(image))).unsqueeze(0)
+    features = backbone(tensor).squeeze(0).cpu()
+    torch.save(features, os.path.join(target_dir, fname.replace('.jpg', '.pth')))
+PY
+```
+
+After regeneration, spot-check a file to confirm its shape (`torch.load(...).shape`
+should be `(H×W, 2048)` with `H×W = 96×128 = 12288` for the resized resolution).
+
 
 :black_nib: Citation
 ------------------
