@@ -94,7 +94,14 @@ def cal_sauc_score(pred, gt_fix, shufmap, stepSize=.01):
     randfix = salMap[ind]
     Nothers = sum(nFix)
 
-    allthreshes = np.arange(0,np.max(np.concatenate((Sth, randfix), axis=0)),stepSize)
+    if Nothers == 0:
+        return 0.0
+
+    thresh_source = np.concatenate((Sth, randfix), axis=0)
+    if thresh_source.size == 0 or np.max(thresh_source) == 0:
+        return 0.0
+
+    allthreshes = np.arange(0, np.max(thresh_source), stepSize)
     allthreshes = allthreshes[::-1]
     tp = np.zeros(len(allthreshes)+2)
     fp = np.zeros(len(allthreshes)+2)

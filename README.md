@@ -189,6 +189,54 @@ manually as you encounter import errors:
   (gazexplain-mac) $ python -m pip install 'numpy<2' 'accelerate==0.27.0'
   ```
   and then rerun the launch command from the same shell.
+**`RuntimeError: Device index must not be negative` appears even with**
+`--eval_repeat_num 1`
+--------------------------------------------------------------
+
+The sampling routine invoked during evaluation (`self.sampling.random_sample`
+inside `src/lib/models/gazeformer_explanation_alignment.py`) creates Gaussian
+noise with `torch.randn(...).to(log_normal_mu.get_device())`. On CPU tensors
+`Tensor.get_device()` returns `-1`, so PyTorch raises `RuntimeError: Device
+index must not be negative` every time inference is launched with
+`accelerate --cpu`—regardless of the `--eval_repeat_num` value.
+
+At the moment the repository does not provide a CPU-only execution path for
+sampling. Resolving the error therefore requires one of the following:
+
+1. **Run inference on hardware with a GPU/MPS device.** Activate the same
+   conda environment on a machine that exposes CUDA or Apple Metal, copy your
+   `runs/` and processed dataset folders across, and invoke the launch command
+   without the `--cpu` flag (Accelerate will select the GPU automatically).
+
+2. **Patch the local code to support CPU tensors.** If modifying files is an
+   option, replace the `torch.randn(...).to(log_normal_mu.get_device())` call
+   in `src/lib/models/sample/sampling.py` with `torch.randn(...,
+   device=log_normal_mu.device)` or move the model to GPU after loading the
+   checkpoint. Either change prevents the negative-device lookup.
+
+For users who must remain on Intel-only macOS hardware and cannot adjust the
+code, the practical workaround is to offload inference to a remote GPU (e.g.,
+Google Colab, an on-premises workstation, or a rented cloud VM) by copying the
+dataset and `runs/ALL_runX_baseline` directory to that system.
+  and dataset.
+  ```bash
+  (gazexplain-mac) $ accelerate launch --config_file src/config.yaml \
+      src/test_explanation_alignment.py --split test --test_batch 1 \
+      --dataset_dir <dataset_root> --datasets OSIE --eval_repeat_num 1
+  ```
+  If you must stay on CPU-only hardware, patch `sampling.py` so that it keeps
+  tensors on the CPU (replace `.to(log_normal_mu.get_device())` with
+  `.to(log_normal_mu.device)`). This requires modifying the source code, which
+  is why we recommend borrowing GPU resources instead when code changes are not
+  an option.
+
+### Fixing `RuntimeError: stack expects a non-empty TensorList`
+
+This happens when `--eval_repeat_num` is set to `0`. The inference loop in
+`gazeformer_explanation_alignment.py` accumulates scanpath samples inside a
+Python list and calls `torch.stack` afterwards; with zero repeats the list stays
+empty and the call fails. Always keep `--eval_repeat_num ≥ 1` unless you are
+prepared to edit the model code to short-circuit the stacking step.
 - **`RuntimeError: Device index must not be negative` during sampling** – this
   indicates the model is attempting to draw stochastic scanpaths on a CPU
   tensor. The helper in `src/lib/models/sample/sampling.py` expects GPU tensors
