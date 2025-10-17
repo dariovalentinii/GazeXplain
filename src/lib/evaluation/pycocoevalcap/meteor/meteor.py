@@ -10,6 +10,7 @@ import os
 import sys
 import subprocess
 import threading
+import warnings
 
 # Assumes meteor-1.5.jar is in the same directory as meteor.py.  Change as needed.
 METEOR_JAR = 'meteor-1.5.jar'
@@ -46,14 +47,24 @@ class Meteor:
         # Send to METEOR
         self.meteor_p.stdin.write(eval_line + '\n')
         
-        # Collect segment scores
-        for i in range(len(imgIds)):
-            score = float(self.meteor_p.stdout.readline().strip())
-            scores.append(score)
+        try:
+            # Collect segment scores
+            for _ in range(len(imgIds)):
+                scores.append(self._read_score())
 
-        # Final score
-        final_score = float(self.meteor_p.stdout.readline().strip())
-        self.lock.release()
+            # Final score
+            final_score = self._read_score()
+        except RuntimeError as err:
+            # When METEOR fails to return numeric scores (e.g. missing Java),
+            # fall back to zeros so evaluation can proceed.
+            warnings.warn(
+                "METEOR metric skipped because the Java process did not "
+                f"return a valid score: {err}"
+            )
+            final_score = 0.0
+            scores = [0.0 for _ in imgIds]
+        finally:
+            self.lock.release()
 
         return final_score, scores
 
@@ -66,6 +77,32 @@ class Meteor:
         score_line = ' ||| '.join(('SCORE', ' ||| '.join(reference_list), hypothesis_str))
         self.meteor_p.stdin.write(score_line+'\n')
         return self.meteor_p.stdout.readline().strip()
+
+    def _read_score(self):
+        line = self.meteor_p.stdout.readline()
+        if line == '':
+            stderr_output = self.meteor_p.stderr.read()
+            raise RuntimeError(
+                'METEOR jar produced no output.' +
+                (f' Stderr: {stderr_output.strip()}' if stderr_output else '')
+            )
+
+        stripped = line.strip()
+        if not stripped:
+            stderr_line = self.meteor_p.stderr.readline().strip()
+            raise RuntimeError(
+                'Received empty METEOR score line.' +
+                (f' Details: {stderr_line}' if stderr_line else '')
+            )
+
+        try:
+            return float(stripped)
+        except ValueError as exc:
+            stderr_line = self.meteor_p.stderr.readline().strip()
+            raise RuntimeError(
+                f"Invalid METEOR score '{stripped}'." +
+                (f' Details: {stderr_line}' if stderr_line else '')
+            ) from exc
  
     def __del__(self):
         self.lock.acquire()
