@@ -45,64 +45,64 @@ class UnifiedScanpath(Dataset):
         explanation_gts = {}
 
         ########## for air dataset ##########
-        air_fixation_dir = os.path.join(self.opt.dataset_dir, "AiR", "processed_data")
-        with open(join(air_fixation_dir, "AiR_fixations_{}.json".format(self.split)), "r") as f:
-            air_fixations = json.load(f)
+        # air_fixation_dir = os.path.join(self.opt.dataset_dir, "AiR", "processed_data")
+        # with open(join(air_fixation_dir, "AiR_fixations_{}.json".format(self.split)), "r") as f:
+        #     air_fixations = json.load(f)
 
-        if self.opt.tiny:
-            air_fixations = air_fixations[:100]
+        # if self.opt.tiny:
+        #     air_fixations = air_fixations[:100]
 
-        for iter, fixation in enumerate(air_fixations):
-            fixation["dataset"] = "AiR-D"
-            # idx of the current dataset
-            fixation["idx"] = iter
+        # for iter, fixation in enumerate(air_fixations):
+        #     fixation["dataset"] = "AiR-D"
+        #     # idx of the current dataset
+        #     fixation["idx"] = iter
 
-        # add duration
-        for fixation in air_fixations:
-            fixation["T"] = [t_end - t_start for t_start, t_end in zip(fixation["T_start"], fixation["T_end"])]
+        # # add duration
+        # for fixation in air_fixations:
+        #     fixation["T"] = [t_end - t_start for t_start, t_end in zip(fixation["T_start"], fixation["T_end"])]
 
-        # explanation
-        air_explanation_dir = os.path.join(self.opt.dataset_dir, "AiR", "processed_data")
-        with open(join(air_explanation_dir, "explanation.json"), "r") as f:
-            air_explanations = json.load(f)
+        # # explanation
+        # air_explanation_dir = os.path.join(self.opt.dataset_dir, "AiR", "processed_data")
+        # with open(join(air_explanation_dir, "explanation.json"), "r") as f:
+        #     air_explanations = json.load(f)
 
-        air_explanation_dict = {}
-        for explanation in air_explanations:
-            brief_explanation = [_ for _ in explanation["explanation"]]
-            # keep the first sentence
-            brief_explanation = [_.split(". ")[0] for _ in brief_explanation]
-            brief_explanation = [_ if _[-1] == "." else _ + "." for _ in brief_explanation]
-            words_each_explanation = [len(_.split(" ")) for _ in brief_explanation]
-            for iter, length_explanation in enumerate(words_each_explanation):
-                if length_explanation >= self.opt.max_explanation_length:
-                    sub_explanation = brief_explanation[iter].split(", ")
-                    words_each_sub_explanation = [len(_.split(" ")) for _ in sub_explanation]
-                    for select_idx in range(len(words_each_sub_explanation)):
-                        if sum(words_each_sub_explanation[:select_idx + 1]) >= self.opt.min_explanation_length:
-                            re_explanation = ", ".join(sub_explanation[:select_idx + 1])
-                            if re_explanation[-1] != ".":
-                                re_explanation = re_explanation + "."
-                            brief_explanation[iter] = re_explanation
-                            break
-            air_explanation_dict.setdefault(explanation["question_id"], {})[explanation["subject"]] = brief_explanation
-            explanation_gts.setdefault(
-                "{}-{}".format(explanation["question_id"], explanation["subject"]), []).append({
-                "caption": " ".join(brief_explanation),
-                "question_id": explanation["question_id"],
-                "subject": explanation["subject"]
-            })
+        # air_explanation_dict = {}
+        # for explanation in air_explanations:
+        #     brief_explanation = [_ for _ in explanation["explanation"]]
+        #     # keep the first sentence
+        #     brief_explanation = [_.split(". ")[0] for _ in brief_explanation]
+        #     brief_explanation = [_ if _[-1] == "." else _ + "." for _ in brief_explanation]
+        #     words_each_explanation = [len(_.split(" ")) for _ in brief_explanation]
+        #     for iter, length_explanation in enumerate(words_each_explanation):
+        #         if length_explanation >= self.opt.max_explanation_length:
+        #             sub_explanation = brief_explanation[iter].split(", ")
+        #             words_each_sub_explanation = [len(_.split(" ")) for _ in sub_explanation]
+        #             for select_idx in range(len(words_each_sub_explanation)):
+        #                 if sum(words_each_sub_explanation[:select_idx + 1]) >= self.opt.min_explanation_length:
+        #                     re_explanation = ", ".join(sub_explanation[:select_idx + 1])
+        #                     if re_explanation[-1] != ".":
+        #                         re_explanation = re_explanation + "."
+        #                     brief_explanation[iter] = re_explanation
+        #                     break
+        #     air_explanation_dict.setdefault(explanation["question_id"], {})[explanation["subject"]] = brief_explanation
+        #     explanation_gts.setdefault(
+        #         "{}-{}".format(explanation["question_id"], explanation["subject"]), []).append({
+        #         "caption": " ".join(brief_explanation),
+        #         "question_id": explanation["question_id"],
+        #         "subject": explanation["subject"]
+        #     })
 
-        for fixation in air_fixations:
-            if fixation["question_id"] in air_explanation_dict:
-                if fixation["subject"] in air_explanation_dict[fixation["question_id"]]:
-                    fixation["explanation"] = air_explanation_dict[fixation["question_id"]][fixation["subject"]]
+        # for fixation in air_fixations:
+        #     if fixation["question_id"] in air_explanation_dict:
+        #         if fixation["subject"] in air_explanation_dict[fixation["question_id"]]:
+        #             fixation["explanation"] = air_explanation_dict[fixation["question_id"]][fixation["subject"]]
 
 
-        # task description
-        text_template = "Question: {} Answer: {}."
-        for fixation in air_fixations:
-            task_description = text_template.format(fixation["question"], fixation["subject_answer"])
-            fixation["task_description"] = task_description
+        # # task description
+        # text_template = "Question: {} Answer: {}."
+        # for fixation in air_fixations:
+        #     task_description = text_template.format(fixation["question"], fixation["subject_answer"])
+        #     fixation["task_description"] = task_description
 
         ########## for OSIE dataset ##########
         osie_fixation_dir = os.path.join(self.opt.dataset_dir, "OSIE", "processed")
@@ -166,150 +166,152 @@ class UnifiedScanpath(Dataset):
             fixation["task_description"] = task_description
 
         ########## for COCO-Search18 TP ##########
-        cocosearch18_TP_fixation_dir = os.path.join(self.opt.dataset_dir, "COCO", "TP", "fixations")
-        with open(join(cocosearch18_TP_fixation_dir, "coco_search18_fixations_TP_{}.json".format(self.split)), "r") as f:
-            cocosearch18_TP_fixations = json.load(f)
+        # cocosearch18_TP_fixation_dir = os.path.join(self.opt.dataset_dir, "COCO", "TP", "fixations")
+        # with open(join(cocosearch18_TP_fixation_dir, "coco_search18_fixations_TP_{}.json".format(self.split)), "r") as f:
+        #     cocosearch18_TP_fixations = json.load(f)
 
-        if self.opt.tiny:
-            cocosearch18_TP_fixations = cocosearch18_TP_fixations[:100]
+        # if self.opt.tiny:
+        #     cocosearch18_TP_fixations = cocosearch18_TP_fixations[:100]
 
-        for iter, fixation in enumerate(cocosearch18_TP_fixations):
-            fixation["dataset"] = "COCO-TP"
-            # idx of the current dataset
-            fixation["idx"] = iter
-            fixation["height"] = 320
-            fixation["width"] = 512
+        # for iter, fixation in enumerate(cocosearch18_TP_fixations):
+        #     fixation["dataset"] = "COCO-TP"
+        #     # idx of the current dataset
+        #     fixation["idx"] = iter
+        #     fixation["height"] = 320
+        #     fixation["width"] = 512
 
-        # explanation
-        cocotp_explanation_dir = os.path.join(self.opt.dataset_dir, "COCO/TP", "processed")
-        with open(join(cocotp_explanation_dir, "explanation.json"), "r") as f:
-            cocotp_explanations = json.load(f)
+        # # explanation
+        # cocotp_explanation_dir = os.path.join(self.opt.dataset_dir, "COCO/TP", "processed")
+        # with open(join(cocotp_explanation_dir, "explanation.json"), "r") as f:
+        #     cocotp_explanations = json.load(f)
 
-        cocotp_explanation_dict = {}
-        for explanation in cocotp_explanations:
-            brief_explanation = [_ for _ in explanation["explanation"]]
-            # keep the first sentence
-            brief_explanation = [_.split(". ")[0] for _ in brief_explanation]
-            brief_explanation = [_ if _[-1] == "." else _ + "." for _ in brief_explanation]
-            words_each_explanation = [len(_.split(" ")) for _ in brief_explanation]
-            for iter, length_explanation in enumerate(words_each_explanation):
-                if length_explanation >= self.opt.max_explanation_length:
-                    sub_explanation = brief_explanation[iter].split(", ")
-                    words_each_sub_explanation = [len(_.split(" ")) for _ in sub_explanation]
-                    for select_idx in range(len(words_each_sub_explanation)):
-                        if sum(words_each_sub_explanation[:select_idx + 1]) >= self.opt.min_explanation_length:
-                            re_explanation = ", ".join(sub_explanation[:select_idx + 1])
-                            if re_explanation[-1] != ".":
-                                re_explanation = re_explanation + "."
-                            brief_explanation[iter] = re_explanation
-                            break
-            cocotp_explanation_dict.setdefault("{}-{}".format(explanation["task"], explanation["name"]), {})[explanation["subject"]] = brief_explanation
-            explanation_gts.setdefault(
-                "TP-{}-{}-{}".format(explanation["task"], explanation["name"][:-4], explanation["subject"]), []).append({
-                "caption": " ".join(brief_explanation),
-                "task": explanation["task"],
-                "name": explanation["name"],
-                "subject": explanation["subject"]
-            })
+        # cocotp_explanation_dict = {}
+        # for explanation in cocotp_explanations:
+        #     brief_explanation = [_ for _ in explanation["explanation"]]
+        #     # keep the first sentence
+        #     brief_explanation = [_.split(". ")[0] for _ in brief_explanation]
+        #     brief_explanation = [_ if _[-1] == "." else _ + "." for _ in brief_explanation]
+        #     words_each_explanation = [len(_.split(" ")) for _ in brief_explanation]
+        #     for iter, length_explanation in enumerate(words_each_explanation):
+        #         if length_explanation >= self.opt.max_explanation_length:
+        #             sub_explanation = brief_explanation[iter].split(", ")
+        #             words_each_sub_explanation = [len(_.split(" ")) for _ in sub_explanation]
+        #             for select_idx in range(len(words_each_sub_explanation)):
+        #                 if sum(words_each_sub_explanation[:select_idx + 1]) >= self.opt.min_explanation_length:
+        #                     re_explanation = ", ".join(sub_explanation[:select_idx + 1])
+        #                     if re_explanation[-1] != ".":
+        #                         re_explanation = re_explanation + "."
+        #                     brief_explanation[iter] = re_explanation
+        #                     break
+        #     cocotp_explanation_dict.setdefault("{}-{}".format(explanation["task"], explanation["name"]), {})[explanation["subject"]] = brief_explanation
+        #     explanation_gts.setdefault(
+        #         "TP-{}-{}-{}".format(explanation["task"], explanation["name"][:-4], explanation["subject"]), []).append({
+        #         "caption": " ".join(brief_explanation),
+        #         "task": explanation["task"],
+        #         "name": explanation["name"],
+        #         "subject": explanation["subject"]
+        #     })
 
-        for fixation in cocosearch18_TP_fixations:
-            fixation["explanation"] = cocotp_explanation_dict["{}-{}".format(fixation["task"], fixation["name"])][fixation["subject"]]
+        # for fixation in cocosearch18_TP_fixations:
+        #     fixation["explanation"] = cocotp_explanation_dict["{}-{}".format(fixation["task"], fixation["name"])][fixation["subject"]]
 
-        # task description
-        text_template = "Question: Is there a {} in the image? Answer: {}."
-        for fixation in cocosearch18_TP_fixations:
-            if fixation["fixOnTarget"]:
-                subject_answer = "yes"
-            else:
-                subject_answer = "no"
-            task_description = text_template.format(fixation["task"], subject_answer)
-            fixation["task_description"] = task_description
-
-
-        ########## for COCO-Search18 TA ##########
-        cocosearch18_TA_fixation_dir = os.path.join(self.opt.dataset_dir, "COCO", "TA", "fixations")
-        if self.split in ["train", "validation"]:
-            with open(join(cocosearch18_TA_fixation_dir, "coco_search18_fixations_TA_trainval.json"), "r") as f:
-                cocosearch18_TA_fixations = json.load(f)
-
-            if self.split == "train":
-                cocosearch18_TA_fixations = [_ for _ in cocosearch18_TA_fixations if _["split"] == "train"]
-            else:
-                cocosearch18_TA_fixations = [_ for _ in cocosearch18_TA_fixations if _["split"] == "valid"]
-
-        else:
-            with open(join(cocosearch18_TA_fixation_dir, "coco_search18_fixations_TA_test.json"), "r") as f:
-                cocosearch18_TA_fixations = json.load(f)
-
-        if self.opt.tiny:
-            cocosearch18_TA_fixations = cocosearch18_TA_fixations[:100]
-
-        for iter, fixation in enumerate(cocosearch18_TA_fixations):
-            fixation["dataset"] = "COCO-TA"
-            # idx of the current dataset
-            fixation["idx"] = iter
-            fixation["height"] = 1050
-            fixation["width"] = 1680
+        # # task description
+        # text_template = "Question: Is there a {} in the image? Answer: {}."
+        # for fixation in cocosearch18_TP_fixations:
+        #     if fixation["fixOnTarget"]:
+        #         subject_answer = "yes"
+        #     else:
+        #         subject_answer = "no"
+        #     task_description = text_template.format(fixation["task"], subject_answer)
+        #     fixation["task_description"] = task_description
 
 
-        # explanation
-        cocota_explanation_dir = os.path.join(self.opt.dataset_dir, "COCO/TA", "processed")
-        with open(join(cocota_explanation_dir, "explanation.json"), "r") as f:
-            cocota_explanations = json.load(f)
+        # ########## for COCO-Search18 TA ##########
+        # cocosearch18_TA_fixation_dir = os.path.join(self.opt.dataset_dir, "COCO", "TA", "fixations")
+        # if self.split in ["train", "validation"]:
+        #     with open(join(cocosearch18_TA_fixation_dir, "coco_search18_fixations_TA_trainval.json"), "r") as f:
+        #         cocosearch18_TA_fixations = json.load(f)
 
-        cocota_explanation_dict = {}
-        for explanation in cocota_explanations:
-            brief_explanation = [_ for _ in explanation["explanation"]]
-            # keep the first sentence
-            brief_explanation = [_.split(". ")[0] for _ in brief_explanation]
-            brief_explanation = [_ if _[-1] == "." else _ + "." for _ in brief_explanation]
-            words_each_explanation = [len(_.split(" ")) for _ in brief_explanation]
-            for iter, length_explanation in enumerate(words_each_explanation):
-                if length_explanation >= self.opt.max_explanation_length:
-                    sub_explanation = brief_explanation[iter].split(", ")
-                    words_each_sub_explanation = [len(_.split(" ")) for _ in sub_explanation]
-                    for select_idx in range(len(words_each_sub_explanation)):
-                        if sum(words_each_sub_explanation[:select_idx + 1]) >= self.opt.min_explanation_length:
-                            re_explanation = ", ".join(sub_explanation[:select_idx + 1])
-                            if re_explanation[-1] != ".":
-                                re_explanation = re_explanation + "."
-                            brief_explanation[iter] = re_explanation
-                            break
-            cocota_explanation_dict.setdefault("{}-{}".format(explanation["task"], explanation["name"]), {})[explanation["subject"]] = brief_explanation
-            explanation_gts.setdefault(
-                "TA-{}-{}-{}".format(explanation["task"], explanation["name"][:-4], explanation["subject"]), []).append({
-                "caption": " ".join(brief_explanation),
-                "task": explanation["task"],
-                "name": explanation["name"],
-                "subject": explanation["subject"]
-            })
+        #     if self.split == "train":
+        #         cocosearch18_TA_fixations = [_ for _ in cocosearch18_TA_fixations if _["split"] == "train"]
+        #     else:
+        #         cocosearch18_TA_fixations = [_ for _ in cocosearch18_TA_fixations if _["split"] == "valid"]
 
-        for fixation in cocosearch18_TA_fixations:
-            fixation["explanation"] = cocota_explanation_dict["{}-{}".format(fixation["task"], fixation["name"])][fixation["subject"]]
+        # else:
+        #     with open(join(cocosearch18_TA_fixation_dir, "coco_search18_fixations_TA_test.json"), "r") as f:
+        #         cocosearch18_TA_fixations = json.load(f)
 
-        # task description
-        text_template = "Question: Is there a {} in the image? Answer: {}."
-        for fixation in cocosearch18_TA_fixations:
-            if fixation["fixOnTarget"]:
-                subject_answer = "yes"
-            else:
-                subject_answer = "no"
-            task_description = text_template.format(fixation["task"], subject_answer)
-            fixation["task_description"] = task_description
+        # if self.opt.tiny:
+        #     cocosearch18_TA_fixations = cocosearch18_TA_fixations[:100]
+
+        # for iter, fixation in enumerate(cocosearch18_TA_fixations):
+        #     fixation["dataset"] = "COCO-TA"
+        #     # idx of the current dataset
+        #     fixation["idx"] = iter
+        #     fixation["height"] = 1050
+        #     fixation["width"] = 1680
+
+
+        # # explanation
+        # cocota_explanation_dir = os.path.join(self.opt.dataset_dir, "COCO/TA", "processed")
+        # with open(join(cocota_explanation_dir, "explanation.json"), "r") as f:
+        #     cocota_explanations = json.load(f)
+
+        # cocota_explanation_dict = {}
+        # for explanation in cocota_explanations:
+        #     brief_explanation = [_ for _ in explanation["explanation"]]
+        #     # keep the first sentence
+        #     brief_explanation = [_.split(". ")[0] for _ in brief_explanation]
+        #     brief_explanation = [_ if _[-1] == "." else _ + "." for _ in brief_explanation]
+        #     words_each_explanation = [len(_.split(" ")) for _ in brief_explanation]
+        #     for iter, length_explanation in enumerate(words_each_explanation):
+        #         if length_explanation >= self.opt.max_explanation_length:
+        #             sub_explanation = brief_explanation[iter].split(", ")
+        #             words_each_sub_explanation = [len(_.split(" ")) for _ in sub_explanation]
+        #             for select_idx in range(len(words_each_sub_explanation)):
+        #                 if sum(words_each_sub_explanation[:select_idx + 1]) >= self.opt.min_explanation_length:
+        #                     re_explanation = ", ".join(sub_explanation[:select_idx + 1])
+        #                     if re_explanation[-1] != ".":
+        #                         re_explanation = re_explanation + "."
+        #                     brief_explanation[iter] = re_explanation
+        #                     break
+        #     cocota_explanation_dict.setdefault("{}-{}".format(explanation["task"], explanation["name"]), {})[explanation["subject"]] = brief_explanation
+        #     explanation_gts.setdefault(
+        #         "TA-{}-{}-{}".format(explanation["task"], explanation["name"][:-4], explanation["subject"]), []).append({
+        #         "caption": " ".join(brief_explanation),
+        #         "task": explanation["task"],
+        #         "name": explanation["name"],
+        #         "subject": explanation["subject"]
+        #     })
+
+        # for fixation in cocosearch18_TA_fixations:
+        #     fixation["explanation"] = cocota_explanation_dict["{}-{}".format(fixation["task"], fixation["name"])][fixation["subject"]]
+
+        # # task description
+        # text_template = "Question: Is there a {} in the image? Answer: {}."
+        # for fixation in cocosearch18_TA_fixations:
+        #     if fixation["fixOnTarget"]:
+        #         subject_answer = "yes"
+        #     else:
+        #         subject_answer = "no"
+        #     task_description = text_template.format(fixation["task"], subject_answer)
+        #     fixation["task_description"] = task_description
 
 
         fixations = []
         if datasets is None:
             datasets = self.opt.datasets
         for dataset in datasets:
-            if dataset == "AiR-D":
-                fixations += air_fixations
-            elif dataset == "OSIE":
+            if dataset == "OSIE":
                 fixations += osie_fixations
-            elif dataset == "COCO-TP":
-                fixations += cocosearch18_TP_fixations
-            elif dataset == "COCO-TA":
-                fixations += cocosearch18_TA_fixations
+            # if dataset == "AiR-D":
+            #     fixations += air_fixations
+            # elif dataset == "OSIE":
+            #     fixations += osie_fixations
+            # elif dataset == "COCO-TP":
+            #     fixations += cocosearch18_TP_fixations
+            # elif dataset == "COCO-TA":
+            #     fixations += cocosearch18_TA_fixations
             else:
                 raise "Invalid Dataset"
 

@@ -66,8 +66,8 @@ def compute_clusters(gt_scanpaths):
 
 
 
-fixation_root = '/home/OSIE/processed'
-processed_root = '/home/OSIE/processed'
+fixation_root = 'dataset_root/OSIE/processed'
+processed_root = 'dataset_root/OSIE/processed'
 
 json_data = os.path.join(fixation_root, 'fixations.json')
 fixations = []

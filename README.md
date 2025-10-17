@@ -237,6 +237,20 @@ This happens when `--eval_repeat_num` is set to `0`. The inference loop in
 Python list and calls `torch.stack` afterwards; with zero repeats the list stays
 empty and the call fails. Always keep `--eval_repeat_num ≥ 1` unless you are
 prepared to edit the model code to short-circuit the stacking step.
+- **`RuntimeError: Device index must not be negative` during sampling** – this
+  indicates the model is attempting to draw stochastic scanpaths on a CPU
+  tensor. The helper in `src/lib/models/sample/sampling.py` expects GPU tensors
+  and calls `get_device()`, which returns `-1` for CPU data. When you only need
+  deterministic predictions (gaze logits, generated explanation) run the test
+  script with `--eval_repeat_num 0` to disable sampling:
+  ```bash
+  (gazexplain-mac) $ accelerate launch --cpu --config_file src/config.yaml \
+      src/test_explanation_alignment.py --split test --test_batch 1 \
+      --dataset_dir <dataset_root> --datasets OSIE --eval_repeat_num 0
+  ```
+  If you require the sampled scanpaths, execute the evaluation on a machine
+  with a CUDA-capable GPU (or Apple Silicon with MPS) so tensors reside on a
+  device whose index is ≥ 0.
 
 ### Fixing `mat1 and mat2 shapes cannot be multiplied`
 
